@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useColorScheme } from '../../hooks/useColorScheme';
-import { Colors } from '../../constants/Colors';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -36,8 +35,19 @@ interface ProfitDataPoint {
 export default function ReportsScreen() {
   const { user } = useAuth();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const isDark = colorScheme === 'dark';
+  const colors = {
+    background: isDark ? '#0F172A' : '#F8FAFC',
+    backgroundSecondary: isDark ? '#1E293B' : '#F1F5F9',
+    card: isDark ? '#1E293B' : '#FFFFFF',
+    text: isDark ? '#F8FAFC' : '#1F2937',
+    textSecondary: isDark ? '#CBD5E1' : '#6B7280',
+    border: isDark ? '#334155' : '#E2E8F0',
+    primary: '#10B981',
+    accent: '#F59E0B',
+    success: '#10B981',
+    error: '#EF4444'
+  };
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [profitData, setProfitData] = useState<ProfitDataPoint[]>([]);

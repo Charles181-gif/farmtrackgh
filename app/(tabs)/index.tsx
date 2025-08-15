@@ -14,6 +14,8 @@ import { useProfile } from '../../contexts/ProfileContext';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import { NotificationService } from '../../services/NotificationService';
+import WeatherService from '../../services/WeatherService';
+import WeatherCard from '../../components/WeatherCard';
 
 
 
@@ -31,6 +33,19 @@ interface Profile {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+}
+
+interface WeatherData {
+  temperature: number;
+  temperatureMin: number;
+  temperatureMax: number;
+  condition: string;
+  humidity: number;
+  windSpeed: number;
+  rainfall: number;
+  windDirection: string;
+  icon: string;
+  location: string;
 }
 
 interface QuickAction {
@@ -54,6 +69,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   const quickActions: QuickAction[] = [
     { id: '1', title: 'Add Task', icon: 'plus.circle.fill', color: '#10B981' },
@@ -69,6 +86,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user) {
       fetchUserData();
+      fetchWeatherData();
       // Request notification permissions
       NotificationService.requestPermissions();
     }
@@ -136,10 +154,22 @@ export default function HomeScreen() {
     return 'Good evening';
   };
 
+  const fetchWeatherData = async () => {
+    try {
+      setWeatherLoading(true);
+      const weatherData = await WeatherService.getCurrentWeather();
+      setWeather(weatherData);
+    } catch (error) {
+      console.error('Error fetching weather:', error);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await fetchUserData();
+    await Promise.all([fetchUserData(), fetchWeatherData()]);
     setRefreshing(false);
   };
 
@@ -209,14 +239,15 @@ export default function HomeScreen() {
     }
   };
 
-  const handleQuickAction = (action: QuickAction) => {
+  const handleQuickAction = async (action: QuickAction) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (action.title === 'Add Task') {
       setShowTaskModal(true);
     } else if (action.route) {
       router.push(action.route as any);
     } else if (action.title === 'Weather') {
-      Alert.alert('Weather', 'Weather information coming soon!');
+      fetchWeatherData();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else if (action.title === 'Reports') {
       router.push('/(tabs)/reports');
     }
@@ -290,6 +321,15 @@ export default function HomeScreen() {
             </View>
           </View>
         </Animated.View>
+
+        {weather && (
+          <Animated.View entering={FadeInUp.delay(250)} style={styles.weatherSection}>
+            <WeatherCard 
+              weatherData={weather}
+              onPress={fetchWeatherData}
+            />
+          </Animated.View>
+        )}
 
         <Animated.View entering={SlideInRight.delay(300)} style={styles.quickActionsSection}>
           <View style={styles.sectionHeader}>
@@ -767,6 +807,10 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontWeight: '600',
     marginRight: 4,
+  },
+  weatherSection: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
   recordsSection: {
     paddingHorizontal: 20,

@@ -1,37 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import Card from '@/components/ui/Card';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors, Typography, Spacing, WeatherColors } from '@/constants/Colors';
-import { supabase } from '@/lib/supabase';
+
+import { IconSymbol } from './ui/IconSymbol';
+import WeatherService from '../services/WeatherService';
 
 interface WeatherData {
   temperature: number;
-  temperatureMin?: number;
-  temperatureMax?: number;
+  temperatureMin: number;
+  temperatureMax: number;
   condition: string;
   humidity: number;
   windSpeed: number;
   rainfall: number;
-  windDirection?: string;
+  windDirection: string;
   icon: string;
-  lastUpdated: string;
+  location: string;
 }
 
 interface WeatherCardProps {
   location?: string;
   onPress?: () => void;
+  weatherData?: WeatherData;
 }
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-export default function WeatherCard({ location = "Accra", onPress }: WeatherCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const [weather, setWeather] = useState<WeatherData>({
+export default function WeatherCard({ location = "Accra", onPress, weatherData }: WeatherCardProps) {
+  const [weather, setWeather] = useState<WeatherData>(weatherData || {
     temperature: 28,
     temperatureMin: 22,
     temperatureMax: 32,
@@ -41,10 +38,7 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
     rainfall: 15,
     windDirection: "NE",
     icon: "cloud.sun.fill",
-    lastUpdated: new Date().toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+    location: "Accra"
   });
   const [loading, setLoading] = useState(false);
   const scale = useSharedValue(1);
@@ -54,43 +48,18 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
   }));
 
   useEffect(() => {
-    loadWeatherData();
-  }, [location]);
+    if (weatherData) {
+      setWeather(weatherData);
+    } else {
+      loadWeatherData();
+    }
+  }, [location, weatherData]);
 
   const loadWeatherData = async () => {
     try {
       setLoading(true);
-      
-      // Try to get cached weather data first
-      const today = new Date().toISOString().split('T')[0];
-      const { data: cachedWeather } = await supabase
-        .from('weather_cache')
-        .select('*')
-        .eq('location', location)
-        .eq('date', today)
-        .single();
-
-      if (cachedWeather) {
-        setWeather({
-          temperature: cachedWeather.temperature_max || 28,
-          temperatureMin: cachedWeather.temperature_min || 22,
-          temperatureMax: cachedWeather.temperature_max || 32,
-          condition: cachedWeather.condition || "Partly Cloudy",
-          humidity: cachedWeather.humidity || 65,
-          windSpeed: cachedWeather.wind_speed || 12,
-          rainfall: cachedWeather.rainfall || 15,
-          windDirection: cachedWeather.wind_direction || "NE",
-          icon: getWeatherIcon(cachedWeather.condition || "Partly Cloudy"),
-          lastUpdated: new Date(cachedWeather.updated_at).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })
-        });
-      }
-      
-      // In a real app, you would fetch from a weather API here
-      // and update the cache
-      
+      const weatherData = await WeatherService.getCurrentWeather();
+      setWeather(weatherData);
     } catch (error) {
       console.error('Error loading weather data:', error);
     } finally {
@@ -98,53 +67,26 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
     }
   };
 
-  const getWeatherIcon = (condition: string) => {
-    switch (condition.toLowerCase()) {
-      case 'sunny':
-      case 'clear':
-        return 'sun.max.fill';
-      case 'cloudy':
-      case 'overcast':
-        return 'cloud.fill';
-      case 'partly cloudy':
-      case 'partly sunny':
-        return 'cloud.sun.fill';
-      case 'rainy':
-      case 'light rain':
-        return 'cloud.rain.fill';
-      case 'heavy rain':
-        return 'cloud.heavyrain.fill';
-      case 'stormy':
-      case 'thunderstorm':
-        return 'cloud.bolt.rain.fill';
-      case 'foggy':
-      case 'mist':
-        return 'cloud.fog.fill';
-      default:
-        return 'cloud.sun.fill';
-    }
-  };
-
   const getWeatherColor = (condition: string) => {
     switch (condition.toLowerCase()) {
       case 'sunny':
       case 'clear':
-        return WeatherColors.sunny;
+        return '#F59E0B';
       case 'cloudy':
       case 'overcast':
-        return WeatherColors.cloudy;
+        return '#6B7280';
       case 'partly cloudy':
       case 'partly sunny':
-        return WeatherColors.partlyCloudy;
+        return '#3B82F6';
       case 'rainy':
       case 'light rain':
       case 'heavy rain':
-        return WeatherColors.rainy;
+        return '#0EA5E9';
       case 'stormy':
       case 'thunderstorm':
-        return WeatherColors.stormy;
+        return '#7C3AED';
       default:
-        return colors.primary;
+        return '#10B981';
     }
   };
 
@@ -167,13 +109,13 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
     const rainfall = weather.rainfall;
     
     if (rainfall > 70) {
-      return { text: "High chance of rain - postpone outdoor work", color: colors.warning };
+      return { text: "High chance of rain - postpone outdoor work", color: '#F59E0B' };
     } else if (temp > 35) {
-      return { text: "Very hot - work early morning or evening", color: colors.error };
+      return { text: "Very hot - work early morning or evening", color: '#EF4444' };
     } else if (humidity > 80) {
-      return { text: "High humidity - stay hydrated", color: colors.info };
+      return { text: "High humidity - stay hydrated", color: '#3B82F6' };
     } else if (temp >= 25 && temp <= 30 && rainfall < 30) {
-      return { text: "Perfect weather for farming!", color: colors.success };
+      return { text: "Perfect weather for farming!", color: '#10B981' };
     }
     return null;
   };
@@ -187,21 +129,20 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
       activeOpacity={0.9}
       disabled={!onPress}
     >
-      <Card 
+      <View 
         style={[
           styles.container, 
           { 
-            backgroundColor: colors.card,
+            backgroundColor: 'white',
             borderLeftWidth: 4,
             borderLeftColor: getWeatherColor(weather.condition)
           }
-        ]} 
-        variant="elevated"
+        ]}
       >
         <View style={styles.header}>
           <View style={styles.locationContainer}>
-            <IconSymbol name="location.fill" size={18} color={colors.primary} />
-            <Text style={[styles.location, { color: colors.text }]}>{location}</Text>
+            <IconSymbol name="location.fill" size={18} color="#10B981" />
+            <Text style={styles.location}>{weather.location}</Text>
           </View>
           <TouchableOpacity 
             onPress={refreshWeather}
@@ -211,10 +152,10 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
             <IconSymbol 
               name="arrow.clockwise" 
               size={16} 
-              color={colors.textSecondary} 
+              color="#6B7280" 
             />
-            <Text style={[styles.lastUpdated, { color: colors.textMuted }]}>
-              {weather.lastUpdated}
+            <Text style={styles.lastUpdated}>
+              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </TouchableOpacity>
         </View>
@@ -227,40 +168,40 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
               color={getWeatherColor(weather.condition)} 
             />
             <View style={styles.tempInfo}>
-              <Text style={[styles.temperature, { color: colors.text }]}>
+              <Text style={styles.temperature}>
                 {weather.temperature}°C
               </Text>
               {weather.temperatureMin && weather.temperatureMax && (
-                <Text style={[styles.tempRange, { color: colors.textSecondary }]}>
+                <Text style={styles.tempRange}>
                   {weather.temperatureMin}° - {weather.temperatureMax}°
                 </Text>
               )}
             </View>
           </View>
-          <Text style={[styles.condition, { color: colors.textSecondary }]}>
+          <Text style={styles.condition}>
             {weather.condition}
           </Text>
         </View>
 
         <View style={styles.details}>
           <View style={styles.detailItem}>
-            <IconSymbol name="drop.fill" size={24} color={colors.info} />
-            <Text style={[styles.detailValue, { color: colors.text }]}>{weather.humidity}%</Text>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Humidity</Text>
+            <IconSymbol name="drop.fill" size={24} color="#3B82F6" />
+            <Text style={styles.detailValue}>{weather.humidity}%</Text>
+            <Text style={styles.detailLabel}>Humidity</Text>
           </View>
 
           <View style={styles.detailItem}>
-            <IconSymbol name="wind" size={24} color={colors.accent} />
-            <Text style={[styles.detailValue, { color: colors.text }]}>
+            <IconSymbol name="wind" size={24} color="#10B981" />
+            <Text style={styles.detailValue}>
               {weather.windSpeed} km/h
             </Text>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Wind</Text>
+            <Text style={styles.detailLabel}>Wind</Text>
           </View>
 
           <View style={styles.detailItem}>
-            <IconSymbol name="cloud.rain.fill" size={24} color={colors.info} />
-            <Text style={[styles.detailValue, { color: colors.text }]}>{weather.rainfall}%</Text>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Rain</Text>
+            <IconSymbol name="cloud.rain.fill" size={24} color="#0EA5E9" />
+            <Text style={styles.detailValue}>{weather.rainfall}%</Text>
+            <Text style={styles.detailLabel}>Rain</Text>
           </View>
         </View>
 
@@ -272,96 +213,110 @@ export default function WeatherCard({ location = "Accra", onPress }: WeatherCard
             </Text>
           </View>
         )}
-      </Card>
+      </View>
     </AnimatedTouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Spacing.md,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: 16,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   location: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
-    marginLeft: Spacing.xs,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginLeft: 4,
   },
   refreshButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   lastUpdated: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 12,
+    color: '#9CA3AF',
     marginLeft: 4,
   },
   mainWeather: {
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: 24,
   },
   temperatureContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   tempInfo: {
-    marginLeft: Spacing.md,
+    marginLeft: 16,
     alignItems: 'center',
   },
   temperature: {
-    fontSize: Typography.sizes['4xl'],
-    fontWeight: Typography.weights.extrabold,
-    lineHeight: Typography.sizes['4xl'] * 1.1,
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#1F2937',
+    lineHeight: 40,
   },
   tempRange: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
     marginTop: 2,
   },
   condition: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   details: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
   },
   detailItem: {
     alignItems: 'center',
     flex: 1,
-    minHeight: 72, // Larger touch target
+    minHeight: 72,
   },
   detailValue: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
     marginTop: 4,
     marginBottom: 2,
   },
   detailLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
   },
   adviceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.md,
-    padding: Spacing.sm,
+    marginTop: 16,
+    padding: 12,
     borderRadius: 8,
   },
   adviceText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
-    marginLeft: Spacing.xs,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
     flex: 1,
   },
 });

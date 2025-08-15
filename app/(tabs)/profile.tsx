@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Alert, ScrollView, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
 import { Image } from 'react-native';
 const { TextInput } = require('react-native');
@@ -224,7 +224,7 @@ export default function ProfileScreen() {
                       disabled={saving}
                     >
                       <Text style={styles.primaryButtonText}>
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {saving ? 'Saving...' : 'Save Changes'}'}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
