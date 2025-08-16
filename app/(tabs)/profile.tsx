@@ -224,7 +224,7 @@ export default function ProfileScreen() {
                       disabled={saving}
                     >
                       <Text style={styles.primaryButtonText}>
-                        {saving ? 'Saving...' : 'Save Changes'}'}
+                        {saving ? 'Saving...' : 'Save Changes'}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
